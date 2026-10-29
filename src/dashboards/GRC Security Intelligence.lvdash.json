@@ -1,0 +1,4848 @@
+{
+  "datasets": [
+    {
+      "name": "control_results",
+      "displayName": "Control Test Results",
+      "queryLines": [
+        "SELECT\n",
+        "  control_id,\n",
+        "  control_name,\n",
+        "  control_domain,\n",
+        "  owner_role,\n",
+        "  test_id,\n",
+        "  test_name,\n",
+        "  pass_rate_pct,\n",
+        "  exception_count,\n",
+        "  population_count,\n",
+        "  effectiveness_band,\n",
+        "  test_result,\n",
+        "  effectiveness_sort\n",
+        "FROM\n",
+        "  grc_gold.control_test_results\n",
+        "ORDER BY\n",
+        "  effectiveness_sort,\n",
+        "  pass_rate_pct"
+      ]
+    },
+    {
+      "name": "vuln_sla",
+      "displayName": "Vulnerability SLA Compliance",
+      "queryLines": [
+        "SELECT\n",
+        "  bu_name,\n",
+        "  tier,\n",
+        "  severity,\n",
+        "  total_findings,\n",
+        "  open_findings,\n",
+        "  open_past_sla,\n",
+        "  sla_compliance_pct,\n",
+        "  open_kev_findings,\n",
+        "  open_kev_past_14d,\n",
+        "  mean_days_to_remediate,\n",
+        "  oldest_open_days\n",
+        "FROM\n",
+        "  grc_gold.vuln_sla_compliance\n",
+        "ORDER BY\n",
+        "  open_past_sla DESC"
+      ]
+    },
+    {
+      "name": "narratives",
+      "displayName": "Control Failure Narratives (AI drafts)",
+      "queryLines": [
+        "SELECT\n",
+        "  test_id,\n",
+        "  control_name,\n",
+        "  effectiveness_band,\n",
+        "  pass_rate_pct,\n",
+        "  owner_narrative,\n",
+        "  auditor_commentary,\n",
+        "  array_join(recommended_actions, ' | ') AS recommended_actions\n",
+        "FROM\n",
+        "  grc_gold.control_failure_narrative\n",
+        "ORDER BY\n",
+        "  pass_rate_pct"
+      ]
+    },
+    {
+      "name": "kpi_summary",
+      "displayName": "GRC KPI Summary",
+      "queryLines": [
+        "SELECT\n",
+        "  kpi_id,\n",
+        "  kpi_domain,\n",
+        "  kpi_name,\n",
+        "  kpi_value,\n",
+        "  unit,\n",
+        "  target_value,\n",
+        "  target_direction,\n",
+        "  kpi_status,\n",
+        "  related_control_id,\n",
+        "  as_of_date\n",
+        "FROM\n",
+        "  grc_gold.grc_kpi_summary\n",
+        "ORDER BY\n",
+        "  kpi_domain,\n",
+        "  kpi_id"
+      ]
+    },
+    {
+      "name": "control_health_daily",
+      "displayName": "Control Health Daily",
+      "config": {
+        "source": "grc_gold.control_health_daily",
+        "measures": [
+          {
+            "name": "pass_rate_pct",
+            "expr": "ROUND(100.0 * (SUM(population_count) - SUM(exception_count)) / NULLIF(SUM(population_count), 0), 2)"
+          },
+          {
+            "name": "exceptions",
+            "expr": "SUM(exception_count)"
+          }
+        ],
+        "filter": "measurement_basis <> 'snapshot'",
+        "version": "1.1",
+        "dimensions": [
+          {
+            "name": "metric_date",
+            "expr": "metric_date"
+          },
+          {
+            "name": "control_domain",
+            "expr": "control_domain"
+          },
+          {
+            "name": "test_name",
+            "expr": "test_name"
+          }
+        ]
+      }
+    },
+    {
+      "name": "risk_register",
+      "displayName": "Risk Register (Scored)",
+      "config": {
+        "version": "1.1",
+        "source": "grc_gold.risk_register_scored",
+        "dimensions": [
+          {
+            "name": "likelihood",
+            "expr": "likelihood"
+          },
+          {
+            "name": "impact",
+            "expr": "impact"
+          },
+          {
+            "name": "residual_rating",
+            "expr": "residual_rating"
+          },
+          {
+            "name": "bu_name",
+            "expr": "bu_name"
+          },
+          {
+            "name": "risk_category",
+            "expr": "risk_category"
+          },
+          {
+            "name": "is_open",
+            "expr": "is_open"
+          }
+        ],
+        "measures": [
+          {
+            "name": "open_risks",
+            "expr": "COUNT_IF(is_open)"
+          },
+          {
+            "name": "open_residual_ale_usd",
+            "expr": "SUM(CASE WHEN is_open THEN residual_ale_usd ELSE 0 END)"
+          },
+          {
+            "name": "avg_residual_score",
+            "expr": "AVG(CASE WHEN is_open THEN residual_score END)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "compliance_posture",
+      "displayName": "Compliance Posture",
+      "config": {
+        "version": "1.1",
+        "source": "grc_gold.compliance_posture",
+        "dimensions": [
+          {
+            "name": "framework_name",
+            "expr": "framework_name"
+          },
+          {
+            "name": "requirement_status",
+            "expr": "requirement_status"
+          }
+        ],
+        "measures": [
+          {
+            "name": "requirements",
+            "expr": "COUNT(1)"
+          },
+          {
+            "name": "effective_pct",
+            "expr": "MAX(framework_requirements_effective_pct)"
+          },
+          {
+            "name": "avg_pass_rate_pct",
+            "expr": "MAX(framework_avg_pass_rate_pct)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "asset_gaps",
+      "displayName": "Asset Coverage Gaps",
+      "config": {
+        "version": "1.1",
+        "source": "SELECT asset_id, bu_name, tier, gap_priority, asset_category, gap_type FROM grc_gold.asset_coverage_gaps LATERAL VIEW explode(gap_types) g AS gap_type",
+        "dimensions": [
+          {
+            "name": "bu_name",
+            "expr": "bu_name"
+          },
+          {
+            "name": "tier",
+            "expr": "tier"
+          },
+          {
+            "name": "gap_priority",
+            "expr": "gap_priority"
+          },
+          {
+            "name": "asset_category",
+            "expr": "asset_category"
+          },
+          {
+            "name": "gap_type",
+            "expr": "gap_type"
+          }
+        ],
+        "measures": [
+          {
+            "name": "assets_with_gaps",
+            "expr": "COUNT(DISTINCT asset_id)"
+          },
+          {
+            "name": "assets_without_edr",
+            "expr": "COUNT(DISTINCT asset_id) FILTER (WHERE gap_type = 'NO_EDR')"
+          }
+        ]
+      }
+    },
+    {
+      "name": "top_identities",
+      "displayName": "Top Risky Identities",
+      "queryLines": [
+        "SELECT\n",
+        "  login,\n",
+        "  bu_name,\n",
+        "  user_type,\n",
+        "  risk_level,\n",
+        "  risk_score,\n",
+        "  is_orphan,\n",
+        "  signins_after_termination,\n",
+        "  is_privileged,\n",
+        "  is_enabled,\n",
+        "  phishing_resistant_mfa,\n",
+        "  mfa_type,\n",
+        "  array_join(risk_flags, ', ') AS risk_flags\n",
+        "FROM\n",
+        "  grc_gold.identity_risk\n",
+        "WHERE\n",
+        "  risk_score > 0\n",
+        "ORDER BY\n",
+        "  risk_score DESC\n",
+        "LIMIT 200"
+      ]
+    },
+    {
+      "name": "policy_lifecycle",
+      "displayName": "Policy Lifecycle",
+      "queryLines": [
+        "SELECT\n",
+        "  policy_id,\n",
+        "  policy_title,\n",
+        "  owner_email,\n",
+        "  lifecycle_stage,\n",
+        "  next_review_date,\n",
+        "  is_review_overdue,\n",
+        "  days_overdue,\n",
+        "  failing_control_count,\n",
+        "  expired_active_exceptions\n",
+        "FROM\n",
+        "  grc_gold.policy_lifecycle\n",
+        "ORDER BY\n",
+        "  days_overdue DESC"
+      ]
+    },
+    {
+      "name": "policy_conflicts",
+      "displayName": "Policy Document vs Register",
+      "queryLines": [
+        "SELECT\n",
+        "  policy_id,\n",
+        "  doc_policy_title,\n",
+        "  has_register_conflict,\n",
+        "  review_date_mismatch,\n",
+        "  sla_conflict,\n",
+        "  owner_mismatch,\n",
+        "  version_mismatch,\n",
+        "  doc_next_review_date,\n",
+        "  register_next_review_date,\n",
+        "  doc_critical_remediation_days,\n",
+        "  enforced_critical_sla_days\n",
+        "FROM\n",
+        "  grc_silver.policy_document_extract\n",
+        "ORDER BY\n",
+        "  has_register_conflict DESC,\n",
+        "  policy_id"
+      ]
+    },
+    {
+      "name": "incidents",
+      "displayName": "Incident Classification (AI)",
+      "config": {
+        "version": "1.1",
+        "source": "grc_silver.incident_classification",
+        "dimensions": [
+          {
+            "name": "attack_category",
+            "expr": "attack_category"
+          },
+          {
+            "name": "control_domain",
+            "expr": "control_domain"
+          },
+          {
+            "name": "severity",
+            "expr": "severity"
+          }
+        ],
+        "measures": [
+          {
+            "name": "incidents",
+            "expr": "COUNT(1)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "identity_risk",
+      "displayName": "Identity Risk",
+      "config": {
+        "version": "1.1",
+        "source": "grc_gold.identity_risk",
+        "dimensions": [
+          {
+            "name": "bu_name",
+            "expr": "bu_name"
+          },
+          {
+            "name": "risk_level",
+            "expr": "risk_level"
+          },
+          {
+            "name": "user_type",
+            "expr": "user_type"
+          },
+          {
+            "name": "mfa_type",
+            "expr": "mfa_type"
+          }
+        ],
+        "measures": [
+          {
+            "name": "identities",
+            "expr": "COUNT(1)"
+          },
+          {
+            "name": "orphaned_accounts",
+            "expr": "COUNT_IF(is_orphan)"
+          },
+          {
+            "name": "post_termination_signin_accounts",
+            "expr": "COUNT_IF(signins_after_termination > 0)"
+          },
+          {
+            "name": "privileged_without_pr_mfa",
+            "expr": "COUNT_IF(is_privileged AND is_enabled AND NOT coalesce(phishing_resistant_mfa, false))"
+          },
+          {
+            "name": "risky_identities",
+            "expr": "COUNT_IF(risk_level IN ('Critical', 'High'))"
+          }
+        ]
+      }
+    },
+    {
+      "name": "exceptions",
+      "displayName": "Exception Tracker",
+      "config": {
+        "version": "1.1",
+        "source": "grc_gold.exception_tracker",
+        "dimensions": [
+          {
+            "name": "tracker_state",
+            "expr": "tracker_state"
+          },
+          {
+            "name": "bu_name",
+            "expr": "bu_name"
+          }
+        ],
+        "measures": [
+          {
+            "name": "exceptions",
+            "expr": "COUNT(1)"
+          },
+          {
+            "name": "expired_still_active",
+            "expr": "COUNT_IF(tracker_state = 'Expired - Still Active')"
+          },
+          {
+            "name": "expiring_30d",
+            "expr": "COUNT_IF(tracker_state = 'Expiring Within 30 Days')"
+          }
+        ]
+      }
+    },
+    {
+      "name": "grc_mv",
+      "displayName": "GRC Control Metrics",
+      "config": {
+        "version": "1.1",
+        "source": "grc_gold.mv_grc_metrics",
+        "dimensions": [
+          {
+            "expr": "source.*"
+          }
+        ],
+        "measures": [
+          {
+            "expr": "source.*"
+          }
+        ]
+      }
+    },
+    {
+      "name": "vuln_mv",
+      "displayName": "Vulnerability Metrics",
+      "config": {
+        "version": "1.1",
+        "source": "grc_gold.mv_vuln_metrics",
+        "dimensions": [
+          {
+            "expr": "source.*"
+          }
+        ],
+        "measures": [
+          {
+            "expr": "source.*"
+          }
+        ]
+      }
+    },
+    {
+      "name": "phy_post_term",
+      "displayName": "Post-termination Badge Use",
+      "queryLines": [
+        "SELECT\n",
+        "  user_id,\n",
+        "  login,\n",
+        "  first_name,\n",
+        "  last_name,\n",
+        "  bu_name,\n",
+        "  hr_termination_date,\n",
+        "  first_badge_in_after_termination_ts_local,\n",
+        "  last_badge_in_after_termination_ts_local,\n",
+        "  badge_in_events_after_termination,\n",
+        "  badge_in_days_after_termination,\n",
+        "  days_termination_to_last_badge_in,\n",
+        "  array_join(sites_entered, ', ') AS sites_entered,\n",
+        "  array_join(doors_entered, ', ') AS doors_entered,\n",
+        "  restricted_zone_entries,\n",
+        "  denied_attempts_after_termination,\n",
+        "  idp_signins_after_termination,\n",
+        "  also_signed_in_idp_after_termination,\n",
+        "  severity,\n",
+        "  control_id,\n",
+        "  control_mapping\n",
+        "FROM\n",
+        "  grc_gold.physical_post_termination_badge_use\n",
+        "ORDER BY\n",
+        "  CASE severity\n",
+        "    WHEN 'Critical' THEN 1\n",
+        "    WHEN 'High' THEN 2\n",
+        "    WHEN 'Medium' THEN 3\n",
+        "    ELSE 4\n",
+        "  END,\n",
+        "  badge_in_events_after_termination DESC"
+      ]
+    },
+    {
+      "name": "phy_visitors",
+      "displayName": "Visitor Findings",
+      "queryLines": [
+        "SELECT\n",
+        "  visit_id,\n",
+        "  visit_date,\n",
+        "  site_code,\n",
+        "  area_visited,\n",
+        "  area_zone,\n",
+        "  is_dc1,\n",
+        "  visitor_name,\n",
+        "  visitor_company,\n",
+        "  host_email,\n",
+        "  is_escorted,\n",
+        "  nda_signed,\n",
+        "  is_signed_out,\n",
+        "  array_join(finding_types, ', ') AS finding_types,\n",
+        "  finding_count,\n",
+        "  severity,\n",
+        "  control_mapping\n",
+        "FROM\n",
+        "  grc_gold.physical_visitor_findings\n",
+        "ORDER BY\n",
+        "  CASE severity\n",
+        "    WHEN 'Critical' THEN 1\n",
+        "    WHEN 'High' THEN 2\n",
+        "    ELSE 3\n",
+        "  END,\n",
+        "  visit_date DESC"
+      ]
+    },
+    {
+      "name": "phy_zone",
+      "displayName": "Restricted Zone Anomalies",
+      "queryLines": [
+        "SELECT\n",
+        "  site_code,\n",
+        "  door_id,\n",
+        "  door_name,\n",
+        "  zone,\n",
+        "  event_date_local,\n",
+        "  forced_open_events,\n",
+        "  held_open_events,\n",
+        "  after_hours_access_events,\n",
+        "  denied_no_clearance_events,\n",
+        "  anomaly_events,\n",
+        "  array_join(denied_badge_ids, ', ') AS denied_badge_ids,\n",
+        "  array_join(anomaly_types, ', ') AS anomaly_types,\n",
+        "  first_anomaly_ts_local,\n",
+        "  last_anomaly_ts_local,\n",
+        "  first_anomaly_ts_utc,\n",
+        "  last_anomaly_ts_utc,\n",
+        "  severity,\n",
+        "  control_mapping\n",
+        "FROM\n",
+        "  grc_gold.physical_zone_anomalies\n",
+        "ORDER BY\n",
+        "  event_date_local,\n",
+        "  door_id"
+      ]
+    },
+    {
+      "name": "phy_badge_daily",
+      "displayName": "Badge Events Daily",
+      "queryLines": [
+        "SELECT\n",
+        "  event_date_local,\n",
+        "  site_code,\n",
+        "  zone,\n",
+        "  count(*) AS events,\n",
+        "  count_if(event_type <> 'ACCESS_GRANTED') AS non_granted_events,\n",
+        "  count_if(is_door_alarm) AS door_alarms\n",
+        "FROM\n",
+        "  grc_silver.badge_access_event\n",
+        "GROUP BY\n",
+        "  event_date_local,\n",
+        "  site_code,\n",
+        "  zone"
+      ]
+    },
+    {
+      "name": "phy_kpis",
+      "displayName": "Physical Security KPIs",
+      "queryLines": [
+        "SELECT\n",
+        "  kpi_id,\n",
+        "  kpi_name,\n",
+        "  kpi_value,\n",
+        "  unit,\n",
+        "  target_value,\n",
+        "  kpi_status,\n",
+        "  related_control_id\n",
+        "FROM\n",
+        "  grc_gold.grc_kpi_summary\n",
+        "WHERE\n",
+        "  kpi_domain = 'Physical Security'\n",
+        "ORDER BY\n",
+        "  kpi_id"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "c1d71f0f",
+      "displayName": "Executive GRC Posture",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## ACME Corp GRC Security Intelligence — Executive Posture\n",
+                "Data as of 2026-10-27"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_ctl01",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_summary",
+                  "fields": [
+                    {
+                      "name": "sum(kpi_value)",
+                      "expression": "SUM(`kpi_value`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`kpi_id` IN ('KPI-CTL-01')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Avg Control Pass Rate"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(kpi_value)",
+                  "formatTemplate": "{{ @formatted }}%",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_ctl03",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_summary",
+                  "fields": [
+                    {
+                      "name": "sum(kpi_value)",
+                      "expression": "SUM(`kpi_value`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`kpi_id` IN ('KPI-CTL-03')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Ineffective Controls"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(kpi_value)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 1,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_vul03",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_summary",
+                  "fields": [
+                    {
+                      "name": "sum(kpi_value)",
+                      "expression": "SUM(`kpi_value`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`kpi_id` IN ('KPI-VUL-03')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Open KEV Findings"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(kpi_value)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 1,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_iam01",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_summary",
+                  "fields": [
+                    {
+                      "name": "sum(kpi_value)",
+                      "expression": "SUM(`kpi_value`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`kpi_id` IN ('KPI-IAM-01')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Orphaned Accounts"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(kpi_value)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 7,
+            "y": 1,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_gov04",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_summary",
+                  "fields": [
+                    {
+                      "name": "sum(kpi_value)",
+                      "expression": "SUM(`kpi_value`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`kpi_id` IN ('KPI-GOV-04')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Open Residual ALE"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(kpi_value)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 1,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "framework_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "compliance_posture",
+                  "fields": [
+                    {
+                      "name": "requirement_status",
+                      "expression": "`requirement_status`"
+                    },
+                    {
+                      "name": "framework_name",
+                      "expression": "`framework_name`"
+                    },
+                    {
+                      "name": "measure(requirements)",
+                      "expression": "MEASURE(`requirements`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Framework Posture",
+                "description": "Worst effectiveness band among mapped controls per requirement"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "framework_name",
+                  "displayName": "Framework",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(requirements)",
+                  "displayName": "Requirements",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "requirement_status",
+                  "displayName": "Requirement Status",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Effective",
+                        "color": "#2375A8"
+                      },
+                      {
+                        "value": "Partially Effective",
+                        "color": "#C89930"
+                      },
+                      {
+                        "value": "Ineffective",
+                        "color": "#C85070"
+                      },
+                      {
+                        "value": "Not Mapped",
+                        "color": "#A0A0A0"
+                      }
+                    ]
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "risk_heatmap",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_register",
+                  "fields": [
+                    {
+                      "name": "measure(open_risks)",
+                      "expression": "MEASURE(`open_risks`)"
+                    },
+                    {
+                      "name": "likelihood",
+                      "expression": "`likelihood`"
+                    },
+                    {
+                      "name": "impact",
+                      "expression": "`impact`"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`is_open` = true"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Residual Risk Heatmap"
+              },
+              "version": 3,
+              "widgetType": "heatmap",
+              "encodings": {
+                "x": {
+                  "fieldName": "likelihood",
+                  "displayName": "Likelihood",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "impact",
+                  "displayName": "Impact",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "color": {
+                  "fieldName": "measure(open_risks)",
+                  "displayName": "Open Risks",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 4,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_summary",
+                  "fields": [
+                    {
+                      "name": "kpi_id",
+                      "expression": "`kpi_id`"
+                    },
+                    {
+                      "name": "kpi_domain",
+                      "expression": "`kpi_domain`"
+                    },
+                    {
+                      "name": "kpi_name",
+                      "expression": "`kpi_name`"
+                    },
+                    {
+                      "name": "kpi_value",
+                      "expression": "`kpi_value`"
+                    },
+                    {
+                      "name": "unit",
+                      "expression": "`unit`"
+                    },
+                    {
+                      "name": "target_value",
+                      "expression": "`target_value`"
+                    },
+                    {
+                      "name": "kpi_status",
+                      "expression": "`kpi_status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "KPI Scorecard"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "kpi_id",
+                    "displayName": "KPI"
+                  },
+                  {
+                    "fieldName": "kpi_domain",
+                    "displayName": "Domain"
+                  },
+                  {
+                    "fieldName": "kpi_name",
+                    "displayName": "Name"
+                  },
+                  {
+                    "fieldName": "kpi_value",
+                    "displayName": "Value"
+                  },
+                  {
+                    "fieldName": "unit",
+                    "displayName": "Unit"
+                  },
+                  {
+                    "fieldName": "target_value",
+                    "displayName": "Target"
+                  },
+                  {
+                    "fieldName": "kpi_status",
+                    "displayName": "Status"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 12,
+            "height": 9
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "control_health",
+      "displayName": "Control Health & Evidence",
+      "layout": [
+        {
+          "widget": {
+            "name": "c_pass",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "grc_mv",
+                  "fields": [
+                    {
+                      "name": "measure(Pass Rate Pct)",
+                      "expression": "MEASURE(`Pass Rate Pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Overall Pass Rate",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Pass Rate Pct)",
+                  "formatTemplate": "{{ @formatted }}%"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_tested",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "grc_mv",
+                  "fields": [
+                    {
+                      "name": "measure(Controls Tested)",
+                      "expression": "MEASURE(`Controls Tested`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Controls Tested",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Controls Tested)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_exc",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "grc_mv",
+                  "fields": [
+                    {
+                      "name": "measure(Exceptions)",
+                      "expression": "MEASURE(`Exceptions`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Exceptions",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Exceptions)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_overdue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "grc_mv",
+                  "fields": [
+                    {
+                      "name": "measure(Overdue Exceptions)",
+                      "expression": "MEASURE(`Overdue Exceptions`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Overdue Exceptions",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Overdue Exceptions)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "pass_by_domain",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "grc_mv",
+                  "fields": [
+                    {
+                      "name": "measure(Pass Rate Pct)",
+                      "expression": "MEASURE(`Pass Rate Pct`)"
+                    },
+                    {
+                      "name": "Control Domain",
+                      "expression": "`Control Domain`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Pass Rate by Control Domain",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "measure(Pass Rate Pct)",
+                  "displayName": "Pass Rate %",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "Control Domain",
+                  "displayName": "Control Domain",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "pass_by_bu",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "grc_mv",
+                  "fields": [
+                    {
+                      "name": "measure(Pass Rate Pct)",
+                      "expression": "MEASURE(`Pass Rate Pct`)"
+                    },
+                    {
+                      "name": "Business Unit",
+                      "expression": "`Business Unit`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Pass Rate by Business Unit",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "measure(Pass Rate Pct)",
+                  "displayName": "Pass Rate %",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "Business Unit",
+                  "displayName": "Business Unit",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "daily_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "control_health_daily",
+                  "fields": [
+                    {
+                      "name": "control_domain",
+                      "expression": "`control_domain`"
+                    },
+                    {
+                      "name": "metric_date",
+                      "expression": "`metric_date`"
+                    },
+                    {
+                      "name": "measure(pass_rate_pct)",
+                      "expression": "MEASURE(`pass_rate_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Daily Control Health"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "metric_date",
+                  "displayName": "Date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(pass_rate_pct)",
+                  "displayName": "Pass Rate %",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "control_domain",
+                  "displayName": "Control Domain",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "results_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "control_results",
+                  "fields": [
+                    {
+                      "name": "control_id",
+                      "expression": "`control_id`"
+                    },
+                    {
+                      "name": "control_name",
+                      "expression": "`control_name`"
+                    },
+                    {
+                      "name": "control_domain",
+                      "expression": "`control_domain`"
+                    },
+                    {
+                      "name": "owner_role",
+                      "expression": "`owner_role`"
+                    },
+                    {
+                      "name": "test_id",
+                      "expression": "`test_id`"
+                    },
+                    {
+                      "name": "pass_rate_pct",
+                      "expression": "`pass_rate_pct`"
+                    },
+                    {
+                      "name": "exception_count",
+                      "expression": "`exception_count`"
+                    },
+                    {
+                      "name": "population_count",
+                      "expression": "`population_count`"
+                    },
+                    {
+                      "name": "effectiveness_band",
+                      "expression": "`effectiveness_band`"
+                    },
+                    {
+                      "name": "test_result",
+                      "expression": "`test_result`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Control Test Results"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "control_id",
+                    "displayName": "Control"
+                  },
+                  {
+                    "fieldName": "control_name",
+                    "displayName": "Control Name"
+                  },
+                  {
+                    "fieldName": "control_domain",
+                    "displayName": "Domain"
+                  },
+                  {
+                    "fieldName": "owner_role",
+                    "displayName": "Owner"
+                  },
+                  {
+                    "fieldName": "test_id",
+                    "displayName": "Test"
+                  },
+                  {
+                    "fieldName": "pass_rate_pct",
+                    "displayName": "Pass Rate %"
+                  },
+                  {
+                    "fieldName": "exception_count",
+                    "displayName": "Exceptions"
+                  },
+                  {
+                    "fieldName": "population_count",
+                    "displayName": "Population"
+                  },
+                  {
+                    "fieldName": "effectiveness_band",
+                    "displayName": "Band"
+                  },
+                  {
+                    "fieldName": "test_result",
+                    "displayName": "Result"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 16,
+            "width": 12,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "narratives",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "narratives",
+                  "fields": [
+                    {
+                      "name": "test_id",
+                      "expression": "`test_id`"
+                    },
+                    {
+                      "name": "control_name",
+                      "expression": "`control_name`"
+                    },
+                    {
+                      "name": "owner_narrative",
+                      "expression": "`owner_narrative`"
+                    },
+                    {
+                      "name": "auditor_commentary",
+                      "expression": "`auditor_commentary`"
+                    },
+                    {
+                      "name": "recommended_actions",
+                      "expression": "`recommended_actions`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "AI-generated Failure Narratives (Draft)",
+                "description": "AI-generated drafts — require human review before use in audit workpapers"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "test_id",
+                    "displayName": "Test"
+                  },
+                  {
+                    "fieldName": "control_name",
+                    "displayName": "Control"
+                  },
+                  {
+                    "fieldName": "owner_narrative",
+                    "displayName": "Owner Narrative (AI draft)"
+                  },
+                  {
+                    "fieldName": "auditor_commentary",
+                    "displayName": "Auditor Commentary (AI draft)"
+                  },
+                  {
+                    "fieldName": "recommended_actions",
+                    "displayName": "Recommended Actions (AI draft)"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 24,
+            "width": 12,
+            "height": 9
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "vuln_asset",
+      "displayName": "Vulnerability & Asset Risk",
+      "layout": [
+        {
+          "widget": {
+            "name": "v_open",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vuln_mv",
+                  "fields": [
+                    {
+                      "name": "measure(Open Findings)",
+                      "expression": "MEASURE(`Open Findings`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Open Findings",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Open Findings)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "v_pastsla",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vuln_mv",
+                  "fields": [
+                    {
+                      "name": "measure(Open Past SLA)",
+                      "expression": "MEASURE(`Open Past SLA`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Open Past SLA",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Open Past SLA)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "v_kev",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vuln_mv",
+                  "fields": [
+                    {
+                      "name": "measure(Open KEV Findings)",
+                      "expression": "MEASURE(`Open KEV Findings`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Open KEV",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Open KEV Findings)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "v_slapct",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vuln_mv",
+                  "fields": [
+                    {
+                      "name": "measure(SLA Compliance Pct)",
+                      "expression": "MEASURE(`SLA Compliance Pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "SLA Compliance",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(SLA Compliance Pct)",
+                  "formatTemplate": "{{ @formatted }}%"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "v_mttr",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vuln_mv",
+                  "fields": [
+                    {
+                      "name": "measure(MTTR Days)",
+                      "expression": "MEASURE(`MTTR Days`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "MTTR Days",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(MTTR Days)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "a_noedr",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "asset_gaps",
+                  "fields": [
+                    {
+                      "name": "measure(assets_without_edr)",
+                      "expression": "MEASURE(`assets_without_edr`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Assets without EDR"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(assets_without_edr)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 10,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "pastsla_bu",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vuln_mv",
+                  "fields": [
+                    {
+                      "name": "Severity",
+                      "expression": "`Severity`"
+                    },
+                    {
+                      "name": "Business Unit",
+                      "expression": "`Business Unit`"
+                    },
+                    {
+                      "name": "measure(Open Past SLA)",
+                      "expression": "MEASURE(`Open Past SLA`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Open Past SLA by BU",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "Business Unit",
+                  "displayName": "Business Unit",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(Open Past SLA)",
+                  "displayName": "Open Past SLA",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "Severity",
+                  "displayName": "Severity",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "open_tier_env",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vuln_mv",
+                  "fields": [
+                    {
+                      "name": "Environment",
+                      "expression": "`Environment`"
+                    },
+                    {
+                      "name": "Asset Tier",
+                      "expression": "`Asset Tier`"
+                    },
+                    {
+                      "name": "measure(Open Findings)",
+                      "expression": "MEASURE(`Open Findings`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Open Findings by Tier",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "Asset Tier",
+                  "displayName": "Asset Tier",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(Open Findings)",
+                  "displayName": "Open Findings",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "Environment",
+                  "displayName": "Environment",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "found_week",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vuln_mv",
+                  "fields": [
+                    {
+                      "name": "First Found Week",
+                      "expression": "`First Found Week`"
+                    },
+                    {
+                      "name": "measure(Open Findings)",
+                      "expression": "MEASURE(`Open Findings`)"
+                    },
+                    {
+                      "name": "measure(Open KEV Findings)",
+                      "expression": "MEASURE(`Open KEV Findings`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Findings by First Found Week",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "First Found Week",
+                  "displayName": "First Found Week",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "measure(Open Findings)",
+                      "displayName": "Open Findings"
+                    },
+                    {
+                      "fieldName": "measure(Open KEV Findings)",
+                      "displayName": "Open KEV"
+                    }
+                  ]
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "gap_types",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "asset_gaps",
+                  "fields": [
+                    {
+                      "name": "gap_priority",
+                      "expression": "`gap_priority`"
+                    },
+                    {
+                      "name": "measure(assets_with_gaps)",
+                      "expression": "MEASURE(`assets_with_gaps`)"
+                    },
+                    {
+                      "name": "gap_type",
+                      "expression": "`gap_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Coverage Gaps by Type"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "measure(assets_with_gaps)",
+                  "displayName": "Assets",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "gap_type",
+                  "displayName": "Gap Type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "color": {
+                  "fieldName": "gap_priority",
+                  "displayName": "Gap Priority",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 10,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "sla_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vuln_sla",
+                  "fields": [
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "tier",
+                      "expression": "`tier`"
+                    },
+                    {
+                      "name": "severity",
+                      "expression": "`severity`"
+                    },
+                    {
+                      "name": "total_findings",
+                      "expression": "`total_findings`"
+                    },
+                    {
+                      "name": "open_findings",
+                      "expression": "`open_findings`"
+                    },
+                    {
+                      "name": "open_past_sla",
+                      "expression": "`open_past_sla`"
+                    },
+                    {
+                      "name": "sla_compliance_pct",
+                      "expression": "`sla_compliance_pct`"
+                    },
+                    {
+                      "name": "open_kev_findings",
+                      "expression": "`open_kev_findings`"
+                    },
+                    {
+                      "name": "open_kev_past_14d",
+                      "expression": "`open_kev_past_14d`"
+                    },
+                    {
+                      "name": "mean_days_to_remediate",
+                      "expression": "`mean_days_to_remediate`"
+                    },
+                    {
+                      "name": "oldest_open_days",
+                      "expression": "`oldest_open_days`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "SLA Compliance Detail"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "bu_name",
+                    "displayName": "Business Unit"
+                  },
+                  {
+                    "fieldName": "tier",
+                    "displayName": "Tier"
+                  },
+                  {
+                    "fieldName": "severity",
+                    "displayName": "Severity"
+                  },
+                  {
+                    "fieldName": "total_findings",
+                    "displayName": "Findings"
+                  },
+                  {
+                    "fieldName": "open_findings",
+                    "displayName": "Open"
+                  },
+                  {
+                    "fieldName": "open_past_sla",
+                    "displayName": "Open Past SLA"
+                  },
+                  {
+                    "fieldName": "sla_compliance_pct",
+                    "displayName": "SLA Compliance %"
+                  },
+                  {
+                    "fieldName": "open_kev_findings",
+                    "displayName": "Open KEV"
+                  },
+                  {
+                    "fieldName": "open_kev_past_14d",
+                    "displayName": "KEV > 14d"
+                  },
+                  {
+                    "fieldName": "mean_days_to_remediate",
+                    "displayName": "MTTR (days)"
+                  },
+                  {
+                    "fieldName": "oldest_open_days",
+                    "displayName": "Oldest Open (days)"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 16,
+            "width": 12,
+            "height": 8
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "identity",
+      "displayName": "Identity & Access Risk",
+      "layout": [
+        {
+          "widget": {
+            "name": "i_orphan",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "identity_risk",
+                  "fields": [
+                    {
+                      "name": "measure(orphaned_accounts)",
+                      "expression": "MEASURE(`orphaned_accounts`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Orphaned Accounts"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(orphaned_accounts)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "i_postterm",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "identity_risk",
+                  "fields": [
+                    {
+                      "name": "measure(post_termination_signin_accounts)",
+                      "expression": "MEASURE(`post_termination_signin_accounts`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Post-termination Sign-ins"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(post_termination_signin_accounts)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "i_privmfa",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "identity_risk",
+                  "fields": [
+                    {
+                      "name": "measure(privileged_without_pr_mfa)",
+                      "expression": "MEASURE(`privileged_without_pr_mfa`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Privileged without PR MFA"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(privileged_without_pr_mfa)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "i_risky",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "identity_risk",
+                  "fields": [
+                    {
+                      "name": "measure(risky_identities)",
+                      "expression": "MEASURE(`risky_identities`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Critical/High Risk Identities"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(risky_identities)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "risk_by_bu",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "identity_risk",
+                  "fields": [
+                    {
+                      "name": "risk_level",
+                      "expression": "`risk_level`"
+                    },
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "measure(identities)",
+                      "expression": "MEASURE(`identities`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`risk_level` NOT IN ('None')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Risk Level by BU"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "bu_name",
+                  "displayName": "Business Unit",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(identities)",
+                  "displayName": "Identities",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "risk_level",
+                  "displayName": "Risk Level",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Critical",
+                        "color": "#C85070"
+                      },
+                      {
+                        "value": "High",
+                        "color": "#C89930"
+                      },
+                      {
+                        "value": "Medium",
+                        "color": "#15AFDD"
+                      },
+                      {
+                        "value": "Low",
+                        "color": "#2375A8"
+                      }
+                    ]
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 7,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "mfa_type",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "identity_risk",
+                  "fields": [
+                    {
+                      "name": "measure(identities)",
+                      "expression": "MEASURE(`identities`)"
+                    },
+                    {
+                      "name": "mfa_type",
+                      "expression": "`mfa_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Identities by MFA Type"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "measure(identities)",
+                  "displayName": "Identities",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "mfa_type",
+                  "displayName": "MFA Type",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x"
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 7,
+            "y": 3,
+            "width": 5,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "top_ids",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "top_identities",
+                  "fields": [
+                    {
+                      "name": "login",
+                      "expression": "`login`"
+                    },
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "user_type",
+                      "expression": "`user_type`"
+                    },
+                    {
+                      "name": "risk_level",
+                      "expression": "`risk_level`"
+                    },
+                    {
+                      "name": "risk_score",
+                      "expression": "`risk_score`"
+                    },
+                    {
+                      "name": "is_orphan",
+                      "expression": "`is_orphan`"
+                    },
+                    {
+                      "name": "signins_after_termination",
+                      "expression": "`signins_after_termination`"
+                    },
+                    {
+                      "name": "is_privileged",
+                      "expression": "`is_privileged`"
+                    },
+                    {
+                      "name": "mfa_type",
+                      "expression": "`mfa_type`"
+                    },
+                    {
+                      "name": "phishing_resistant_mfa",
+                      "expression": "`phishing_resistant_mfa`"
+                    },
+                    {
+                      "name": "risk_flags",
+                      "expression": "`risk_flags`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Top Risky Identities"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "login",
+                    "displayName": "Login"
+                  },
+                  {
+                    "fieldName": "bu_name",
+                    "displayName": "Business Unit"
+                  },
+                  {
+                    "fieldName": "user_type",
+                    "displayName": "Type"
+                  },
+                  {
+                    "fieldName": "risk_level",
+                    "displayName": "Risk Level"
+                  },
+                  {
+                    "fieldName": "risk_score",
+                    "displayName": "Score"
+                  },
+                  {
+                    "fieldName": "is_orphan",
+                    "displayName": "Orphan"
+                  },
+                  {
+                    "fieldName": "signins_after_termination",
+                    "displayName": "Post-term Sign-ins"
+                  },
+                  {
+                    "fieldName": "is_privileged",
+                    "displayName": "Privileged"
+                  },
+                  {
+                    "fieldName": "mfa_type",
+                    "displayName": "MFA Type"
+                  },
+                  {
+                    "fieldName": "phishing_resistant_mfa",
+                    "displayName": "PR MFA"
+                  },
+                  {
+                    "fieldName": "risk_flags",
+                    "displayName": "Risk Flags"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 12,
+            "height": 9
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "policy_risk",
+      "displayName": "Policy, Risk & Exceptions",
+      "layout": [
+        {
+          "widget": {
+            "name": "p_overdue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "policy_lifecycle",
+                  "fields": [
+                    {
+                      "name": "count(policy_id)",
+                      "expression": "COUNT(`policy_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`is_review_overdue` = true"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Policies Review Overdue"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(policy_id)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "p_conflicts",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "policy_conflicts",
+                  "fields": [
+                    {
+                      "name": "count(policy_id)",
+                      "expression": "COUNT(`policy_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`has_register_conflict` = true"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Doc vs Register Conflicts"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(policy_id)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "e_expired",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exceptions",
+                  "fields": [
+                    {
+                      "name": "measure(expired_still_active)",
+                      "expression": "MEASURE(`expired_still_active`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Expired - Still Active"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(expired_still_active)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "e_expiring",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exceptions",
+                  "fields": [
+                    {
+                      "name": "measure(expiring_30d)",
+                      "expression": "MEASURE(`expiring_30d`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Expiring Within 30 Days"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(expiring_30d)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "risk_rating",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_register",
+                  "fields": [
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "residual_rating",
+                      "expression": "`residual_rating`"
+                    },
+                    {
+                      "name": "measure(open_risks)",
+                      "expression": "MEASURE(`open_risks`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`is_open` = true"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Open Risks by Residual Rating"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "residual_rating",
+                  "displayName": "Residual Rating",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(open_risks)",
+                  "displayName": "Open Risks",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "bu_name",
+                  "displayName": "Business Unit",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "exc_state",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exceptions",
+                  "fields": [
+                    {
+                      "name": "measure(exceptions)",
+                      "expression": "MEASURE(`exceptions`)"
+                    },
+                    {
+                      "name": "tracker_state",
+                      "expression": "`tracker_state`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Exceptions by Tracker State"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "measure(exceptions)",
+                  "displayName": "Exceptions",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "tracker_state",
+                  "displayName": "Tracker State",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "incidents",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "incidents",
+                  "fields": [
+                    {
+                      "name": "control_domain",
+                      "expression": "`control_domain`"
+                    },
+                    {
+                      "name": "attack_category",
+                      "expression": "`attack_category`"
+                    },
+                    {
+                      "name": "measure(incidents)",
+                      "expression": "MEASURE(`incidents`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Incidents by Attack Category"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "attack_category",
+                  "displayName": "Attack Category (AI)",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(incidents)",
+                  "displayName": "Incidents",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "control_domain",
+                  "displayName": "Control Domain (AI)",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 12,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "conflict_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "policy_conflicts",
+                  "fields": [
+                    {
+                      "name": "policy_id",
+                      "expression": "`policy_id`"
+                    },
+                    {
+                      "name": "doc_policy_title",
+                      "expression": "`doc_policy_title`"
+                    },
+                    {
+                      "name": "has_register_conflict",
+                      "expression": "`has_register_conflict`"
+                    },
+                    {
+                      "name": "review_date_mismatch",
+                      "expression": "`review_date_mismatch`"
+                    },
+                    {
+                      "name": "doc_next_review_date",
+                      "expression": "`doc_next_review_date`"
+                    },
+                    {
+                      "name": "register_next_review_date",
+                      "expression": "`register_next_review_date`"
+                    },
+                    {
+                      "name": "sla_conflict",
+                      "expression": "`sla_conflict`"
+                    },
+                    {
+                      "name": "doc_critical_remediation_days",
+                      "expression": "`doc_critical_remediation_days`"
+                    },
+                    {
+                      "name": "enforced_critical_sla_days",
+                      "expression": "`enforced_critical_sla_days`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Policy Document vs Register"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "policy_id",
+                    "displayName": "Policy"
+                  },
+                  {
+                    "fieldName": "doc_policy_title",
+                    "displayName": "Title (document)"
+                  },
+                  {
+                    "fieldName": "has_register_conflict",
+                    "displayName": "Any Conflict"
+                  },
+                  {
+                    "fieldName": "review_date_mismatch",
+                    "displayName": "Review Date Mismatch"
+                  },
+                  {
+                    "fieldName": "doc_next_review_date",
+                    "displayName": "Doc Next Review"
+                  },
+                  {
+                    "fieldName": "register_next_review_date",
+                    "displayName": "Register Next Review"
+                  },
+                  {
+                    "fieldName": "sla_conflict",
+                    "displayName": "SLA Conflict"
+                  },
+                  {
+                    "fieldName": "doc_critical_remediation_days",
+                    "displayName": "Doc Critical SLA (days)"
+                  },
+                  {
+                    "fieldName": "enforced_critical_sla_days",
+                    "displayName": "Enforced Critical SLA (days)"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 17,
+            "width": 12,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "policy_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "policy_lifecycle",
+                  "fields": [
+                    {
+                      "name": "policy_id",
+                      "expression": "`policy_id`"
+                    },
+                    {
+                      "name": "policy_title",
+                      "expression": "`policy_title`"
+                    },
+                    {
+                      "name": "owner_email",
+                      "expression": "`owner_email`"
+                    },
+                    {
+                      "name": "lifecycle_stage",
+                      "expression": "`lifecycle_stage`"
+                    },
+                    {
+                      "name": "next_review_date",
+                      "expression": "`next_review_date`"
+                    },
+                    {
+                      "name": "is_review_overdue",
+                      "expression": "`is_review_overdue`"
+                    },
+                    {
+                      "name": "days_overdue",
+                      "expression": "`days_overdue`"
+                    },
+                    {
+                      "name": "failing_control_count",
+                      "expression": "`failing_control_count`"
+                    },
+                    {
+                      "name": "expired_active_exceptions",
+                      "expression": "`expired_active_exceptions`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Policy Lifecycle"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "policy_id",
+                    "displayName": "Policy"
+                  },
+                  {
+                    "fieldName": "policy_title",
+                    "displayName": "Title"
+                  },
+                  {
+                    "fieldName": "owner_email",
+                    "displayName": "Owner"
+                  },
+                  {
+                    "fieldName": "lifecycle_stage",
+                    "displayName": "Stage"
+                  },
+                  {
+                    "fieldName": "next_review_date",
+                    "displayName": "Next Review"
+                  },
+                  {
+                    "fieldName": "is_review_overdue",
+                    "displayName": "Overdue"
+                  },
+                  {
+                    "fieldName": "days_overdue",
+                    "displayName": "Days Overdue"
+                  },
+                  {
+                    "fieldName": "failing_control_count",
+                    "displayName": "Failing Controls"
+                  },
+                  {
+                    "fieldName": "expired_active_exceptions",
+                    "displayName": "Expired Active Exceptions"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 24,
+            "width": 12,
+            "height": 7
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "global_filters",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "bu_filter2",
+            "queries": [
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2dbe3a71fe0aefc518c5543de62_Business Unit",
+                "query": {
+                  "datasetName": "grc_mv",
+                  "fields": [
+                    {
+                      "name": "Business Unit",
+                      "expression": "`Business Unit`"
+                    },
+                    {
+                      "name": "Business Unit_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2dbe3d01ba0a375b95475d8cca9_Business Unit",
+                "query": {
+                  "datasetName": "vuln_mv",
+                  "fields": [
+                    {
+                      "name": "Business Unit",
+                      "expression": "`Business Unit`"
+                    },
+                    {
+                      "name": "Business Unit_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db48b916d09c532db2b0e86495_bu_name",
+                "query": {
+                  "datasetName": "vuln_sla",
+                  "fields": [
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "bu_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db49a218f28d9dd8bd16e56a2d_bu_name",
+                "query": {
+                  "datasetName": "asset_gaps",
+                  "fields": [
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "bu_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db55b514209240fa259b117e3f_bu_name",
+                "query": {
+                  "datasetName": "identity_risk",
+                  "fields": [
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "bu_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db54d313f283e55f529cea1639_bu_name",
+                "query": {
+                  "datasetName": "top_identities",
+                  "fields": [
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "bu_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db496a1213b18d503d776a9fd2_bu_name",
+                "query": {
+                  "datasetName": "risk_register",
+                  "fields": [
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "bu_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db55d71e6caa7d870273b5a603_bu_name",
+                "query": {
+                  "datasetName": "exceptions",
+                  "fields": [
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "bu_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea1c41ab597550a80fbb763f8_bu_name",
+                "query": {
+                  "datasetName": "phy_post_term",
+                  "fields": [
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "bu_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Business Unit",
+                  "fields": []
+                }
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "Business Unit",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2dbe3a71fe0aefc518c5543de62_Business Unit"
+                  },
+                  {
+                    "fieldName": "Business Unit",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2dbe3d01ba0a375b95475d8cca9_Business Unit"
+                  },
+                  {
+                    "fieldName": "bu_name",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db48b916d09c532db2b0e86495_bu_name"
+                  },
+                  {
+                    "fieldName": "bu_name",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db49a218f28d9dd8bd16e56a2d_bu_name"
+                  },
+                  {
+                    "fieldName": "bu_name",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db55b514209240fa259b117e3f_bu_name"
+                  },
+                  {
+                    "fieldName": "bu_name",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db54d313f283e55f529cea1639_bu_name"
+                  },
+                  {
+                    "fieldName": "bu_name",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db496a1213b18d503d776a9fd2_bu_name"
+                  },
+                  {
+                    "fieldName": "bu_name",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2db55d71e6caa7d870273b5a603_bu_name"
+                  },
+                  {
+                    "fieldName": "bu_name",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea1c41ab597550a80fbb763f8_bu_name"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "physical_sec",
+      "displayName": "Physical Security",
+      "layout": [
+        {
+          "widget": {
+            "name": "phy_header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Physical Security\n",
+                "Badge and visitor data come from the on-prem NAS share (badge exports and visitor logs). Data as of 2026-10-27.\n",
+                "\n",
+                "*Control mapping:* `grc_ref` has no physical-access control, so PHY-02 to PHY-04 findings are a **control gap**. PHY-01 relates to **GRC-IAM-03** (leaver deprovisioning) as a partial mapping."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_kpi01",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_kpis",
+                  "fields": [
+                    {
+                      "name": "sum(kpi_value)",
+                      "expression": "SUM(`kpi_value`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`kpi_id` IN ('KPI-PHY-01')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "People Badging In After Termination",
+                "description": "KPI-PHY-01 · target 0 · related GRC-IAM-03"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(kpi_value)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_kpi02",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_kpis",
+                  "fields": [
+                    {
+                      "name": "sum(kpi_value)",
+                      "expression": "SUM(`kpi_value`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`kpi_id` IN ('KPI-PHY-02')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Critical-zone Door Alarms (30d)",
+                "description": "KPI-PHY-02 · forced + held open · target 0"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(kpi_value)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_kpi03",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_kpis",
+                  "fields": [
+                    {
+                      "name": "sum(kpi_value)",
+                      "expression": "SUM(`kpi_value`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`kpi_id` IN ('KPI-PHY-03')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Unescorted Restricted-area Visits (30d)",
+                "description": "KPI-PHY-03 · target 0"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(kpi_value)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_kpi04",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_kpis",
+                  "fields": [
+                    {
+                      "name": "sum(kpi_value)",
+                      "expression": "SUM(`kpi_value`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`kpi_id` IN ('KPI-PHY-04')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Visitor Log Completeness (30d)",
+                "description": "KPI-PHY-04 · target ≥ 98%"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(kpi_value)",
+                  "formatTemplate": "{{ @formatted }}%",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_site_filter",
+            "queries": [
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea2d914fdaeb76d746a066d6b_site_code",
+                "query": {
+                  "datasetName": "phy_zone",
+                  "fields": [
+                    {
+                      "name": "site_code",
+                      "expression": "`site_code`"
+                    },
+                    {
+                      "name": "site_code_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea26a13709b5d54ff8a914fb8_site_code",
+                "query": {
+                  "datasetName": "phy_visitors",
+                  "fields": [
+                    {
+                      "name": "site_code",
+                      "expression": "`site_code`"
+                    },
+                    {
+                      "name": "site_code_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea34c1838bee309b4a7230d7c_site_code",
+                "query": {
+                  "datasetName": "phy_badge_daily",
+                  "fields": [
+                    {
+                      "name": "site_code",
+                      "expression": "`site_code`"
+                    },
+                    {
+                      "name": "site_code_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Site"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "site_code",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea2d914fdaeb76d746a066d6b_site_code"
+                  },
+                  {
+                    "fieldName": "site_code",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea26a13709b5d54ff8a914fb8_site_code"
+                  },
+                  {
+                    "fieldName": "site_code",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea34c1838bee309b4a7230d7c_site_code"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_sev_filter",
+            "queries": [
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea26a13709b5d54ff8a914fb8_severity",
+                "query": {
+                  "datasetName": "phy_visitors",
+                  "fields": [
+                    {
+                      "name": "severity",
+                      "expression": "`severity`"
+                    },
+                    {
+                      "name": "severity_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea2d914fdaeb76d746a066d6b_severity",
+                "query": {
+                  "datasetName": "phy_zone",
+                  "fields": [
+                    {
+                      "name": "severity",
+                      "expression": "`severity`"
+                    },
+                    {
+                      "name": "severity_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea1c41ab597550a80fbb763f8_severity",
+                "query": {
+                  "datasetName": "phy_post_term",
+                  "fields": [
+                    {
+                      "name": "severity",
+                      "expression": "`severity`"
+                    },
+                    {
+                      "name": "severity_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "Critical"
+                      },
+                      {
+                        "value": "High"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Severity"
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "severity",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea26a13709b5d54ff8a914fb8_severity"
+                  },
+                  {
+                    "fieldName": "severity",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea2d914fdaeb76d746a066d6b_severity"
+                  },
+                  {
+                    "fieldName": "severity",
+                    "queryName": "dashboards/01f1d2db103c134792e1ce7b20e66ce2/datasets/01f1d2eea1c41ab597550a80fbb763f8_severity"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 5,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_visitor_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_visitors",
+                  "fields": [
+                    {
+                      "name": "severity",
+                      "expression": "`severity`"
+                    },
+                    {
+                      "name": "site_code",
+                      "expression": "`site_code`"
+                    },
+                    {
+                      "name": "count(visit_id)",
+                      "expression": "COUNT(`visit_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Visitor Findings by Site"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "site_code",
+                  "displayName": "Site",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(visit_id)",
+                  "displayName": "Visits with findings",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "severity",
+                  "displayName": "Severity",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Critical",
+                        "color": "#C85070"
+                      },
+                      {
+                        "value": "High",
+                        "color": "#C89930"
+                      },
+                      {
+                        "value": "Medium",
+                        "color": "#15AFDD"
+                      }
+                    ]
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            },
+            "filterSources": {
+              "mode": "EXCLUDE",
+              "page": {
+                "names": [
+                  "phy_sev_filter"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_zone_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_zone",
+                  "fields": [
+                    {
+                      "name": "event_date_local",
+                      "expression": "`event_date_local`"
+                    },
+                    {
+                      "name": "sum(forced_open_events)",
+                      "expression": "SUM(`forced_open_events`)"
+                    },
+                    {
+                      "name": "sum(held_open_events)",
+                      "expression": "SUM(`held_open_events`)"
+                    },
+                    {
+                      "name": "sum(denied_no_clearance_events)",
+                      "expression": "SUM(`denied_no_clearance_events`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Restricted-zone Anomalies by Day"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_date_local",
+                  "displayName": "Date (site local)",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "sum(forced_open_events)",
+                      "displayName": "Forced open"
+                    },
+                    {
+                      "fieldName": "sum(held_open_events)",
+                      "displayName": "Held open"
+                    },
+                    {
+                      "fieldName": "sum(denied_no_clearance_events)",
+                      "displayName": "Denied (no clearance)"
+                    }
+                  ]
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 6,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_badge_line",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_badge_daily",
+                  "fields": [
+                    {
+                      "name": "site_code",
+                      "expression": "`site_code`"
+                    },
+                    {
+                      "name": "event_date_local",
+                      "expression": "`event_date_local`"
+                    },
+                    {
+                      "name": "sum(non_granted_events)",
+                      "expression": "SUM(`non_granted_events`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Denied and Alarm Badge Events by Site",
+                "description": "Daily non-granted events (denied badges, forced/held doors) per site"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_date_local",
+                  "displayName": "Date (site local)",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(non_granted_events)",
+                  "displayName": "Non-granted events",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "site_code",
+                  "displayName": "Site",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_post_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_post_term",
+                  "fields": [
+                    {
+                      "name": "severity",
+                      "expression": "`severity`"
+                    },
+                    {
+                      "name": "login",
+                      "expression": "`login`"
+                    },
+                    {
+                      "name": "bu_name",
+                      "expression": "`bu_name`"
+                    },
+                    {
+                      "name": "hr_termination_date",
+                      "expression": "`hr_termination_date`"
+                    },
+                    {
+                      "name": "first_badge_in_after_termination_ts_local",
+                      "expression": "`first_badge_in_after_termination_ts_local`"
+                    },
+                    {
+                      "name": "last_badge_in_after_termination_ts_local",
+                      "expression": "`last_badge_in_after_termination_ts_local`"
+                    },
+                    {
+                      "name": "badge_in_events_after_termination",
+                      "expression": "`badge_in_events_after_termination`"
+                    },
+                    {
+                      "name": "badge_in_days_after_termination",
+                      "expression": "`badge_in_days_after_termination`"
+                    },
+                    {
+                      "name": "sites_entered",
+                      "expression": "`sites_entered`"
+                    },
+                    {
+                      "name": "restricted_zone_entries",
+                      "expression": "`restricted_zone_entries`"
+                    },
+                    {
+                      "name": "denied_attempts_after_termination",
+                      "expression": "`denied_attempts_after_termination`"
+                    },
+                    {
+                      "name": "idp_signins_after_termination",
+                      "expression": "`idp_signins_after_termination`"
+                    },
+                    {
+                      "name": "control_id",
+                      "expression": "`control_id`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Post-termination Badge Use"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "severity",
+                    "displayName": "Severity"
+                  },
+                  {
+                    "fieldName": "login",
+                    "displayName": "Login"
+                  },
+                  {
+                    "fieldName": "bu_name",
+                    "displayName": "Business Unit"
+                  },
+                  {
+                    "fieldName": "hr_termination_date",
+                    "displayName": "Terminated"
+                  },
+                  {
+                    "fieldName": "first_badge_in_after_termination_ts_local",
+                    "displayName": "First Badge-in (local)"
+                  },
+                  {
+                    "fieldName": "last_badge_in_after_termination_ts_local",
+                    "displayName": "Last Badge-in (local)"
+                  },
+                  {
+                    "fieldName": "badge_in_events_after_termination",
+                    "displayName": "Badge-ins"
+                  },
+                  {
+                    "fieldName": "badge_in_days_after_termination",
+                    "displayName": "Days"
+                  },
+                  {
+                    "fieldName": "sites_entered",
+                    "displayName": "Sites"
+                  },
+                  {
+                    "fieldName": "restricted_zone_entries",
+                    "displayName": "Restricted Entries"
+                  },
+                  {
+                    "fieldName": "denied_attempts_after_termination",
+                    "displayName": "Denied"
+                  },
+                  {
+                    "fieldName": "idp_signins_after_termination",
+                    "displayName": "IdP Sign-ins"
+                  },
+                  {
+                    "fieldName": "control_id",
+                    "displayName": "Related Control"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 19,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_zone_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_zone",
+                  "fields": [
+                    {
+                      "name": "severity",
+                      "expression": "`severity`"
+                    },
+                    {
+                      "name": "site_code",
+                      "expression": "`site_code`"
+                    },
+                    {
+                      "name": "door_id",
+                      "expression": "`door_id`"
+                    },
+                    {
+                      "name": "door_name",
+                      "expression": "`door_name`"
+                    },
+                    {
+                      "name": "zone",
+                      "expression": "`zone`"
+                    },
+                    {
+                      "name": "event_date_local",
+                      "expression": "`event_date_local`"
+                    },
+                    {
+                      "name": "forced_open_events",
+                      "expression": "`forced_open_events`"
+                    },
+                    {
+                      "name": "held_open_events",
+                      "expression": "`held_open_events`"
+                    },
+                    {
+                      "name": "denied_no_clearance_events",
+                      "expression": "`denied_no_clearance_events`"
+                    },
+                    {
+                      "name": "denied_badge_ids",
+                      "expression": "`denied_badge_ids`"
+                    },
+                    {
+                      "name": "first_anomaly_ts_local",
+                      "expression": "`first_anomaly_ts_local`"
+                    },
+                    {
+                      "name": "first_anomaly_ts_utc",
+                      "expression": "`first_anomaly_ts_utc`"
+                    },
+                    {
+                      "name": "last_anomaly_ts_local",
+                      "expression": "`last_anomaly_ts_local`"
+                    },
+                    {
+                      "name": "control_mapping",
+                      "expression": "`control_mapping`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Restricted-zone Anomalies"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "severity",
+                    "displayName": "Severity"
+                  },
+                  {
+                    "fieldName": "site_code",
+                    "displayName": "Site"
+                  },
+                  {
+                    "fieldName": "door_id",
+                    "displayName": "Door"
+                  },
+                  {
+                    "fieldName": "door_name",
+                    "displayName": "Door Name"
+                  },
+                  {
+                    "fieldName": "zone",
+                    "displayName": "Zone"
+                  },
+                  {
+                    "fieldName": "event_date_local",
+                    "displayName": "Date (local)"
+                  },
+                  {
+                    "fieldName": "forced_open_events",
+                    "displayName": "Forced"
+                  },
+                  {
+                    "fieldName": "held_open_events",
+                    "displayName": "Held"
+                  },
+                  {
+                    "fieldName": "denied_no_clearance_events",
+                    "displayName": "Denied"
+                  },
+                  {
+                    "fieldName": "denied_badge_ids",
+                    "displayName": "Denied Badges"
+                  },
+                  {
+                    "fieldName": "first_anomaly_ts_local",
+                    "displayName": "First (local)"
+                  },
+                  {
+                    "fieldName": "first_anomaly_ts_utc",
+                    "displayName": "First (UTC)"
+                  },
+                  {
+                    "fieldName": "last_anomaly_ts_local",
+                    "displayName": "Last (local)"
+                  },
+                  {
+                    "fieldName": "control_mapping",
+                    "displayName": "Control Mapping"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 25,
+            "width": 12,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "phy_visitor_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "phy_visitors",
+                  "fields": [
+                    {
+                      "name": "severity",
+                      "expression": "`severity`"
+                    },
+                    {
+                      "name": "visit_date",
+                      "expression": "`visit_date`"
+                    },
+                    {
+                      "name": "site_code",
+                      "expression": "`site_code`"
+                    },
+                    {
+                      "name": "area_visited",
+                      "expression": "`area_visited`"
+                    },
+                    {
+                      "name": "area_zone",
+                      "expression": "`area_zone`"
+                    },
+                    {
+                      "name": "visitor_name",
+                      "expression": "`visitor_name`"
+                    },
+                    {
+                      "name": "visitor_company",
+                      "expression": "`visitor_company`"
+                    },
+                    {
+                      "name": "host_email",
+                      "expression": "`host_email`"
+                    },
+                    {
+                      "name": "is_escorted",
+                      "expression": "`is_escorted`"
+                    },
+                    {
+                      "name": "nda_signed",
+                      "expression": "`nda_signed`"
+                    },
+                    {
+                      "name": "is_signed_out",
+                      "expression": "`is_signed_out`"
+                    },
+                    {
+                      "name": "finding_types",
+                      "expression": "`finding_types`"
+                    },
+                    {
+                      "name": "control_mapping",
+                      "expression": "`control_mapping`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Visitor Findings",
+                "description": "Severity filter defaults to Critical and High"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "severity",
+                    "displayName": "Severity"
+                  },
+                  {
+                    "fieldName": "visit_date",
+                    "displayName": "Visit Date"
+                  },
+                  {
+                    "fieldName": "site_code",
+                    "displayName": "Site"
+                  },
+                  {
+                    "fieldName": "area_visited",
+                    "displayName": "Area"
+                  },
+                  {
+                    "fieldName": "area_zone",
+                    "displayName": "Zone"
+                  },
+                  {
+                    "fieldName": "visitor_name",
+                    "displayName": "Visitor"
+                  },
+                  {
+                    "fieldName": "visitor_company",
+                    "displayName": "Company"
+                  },
+                  {
+                    "fieldName": "host_email",
+                    "displayName": "Host"
+                  },
+                  {
+                    "fieldName": "is_escorted",
+                    "displayName": "Escorted"
+                  },
+                  {
+                    "fieldName": "nda_signed",
+                    "displayName": "NDA"
+                  },
+                  {
+                    "fieldName": "is_signed_out",
+                    "displayName": "Signed Out"
+                  },
+                  {
+                    "fieldName": "finding_types",
+                    "displayName": "Findings"
+                  },
+                  {
+                    "fieldName": "control_mapping",
+                    "displayName": "Control Mapping"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 30,
+            "width": 12,
+            "height": 9
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F4F6F9",
+        "dark": "#0F1A26"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#1F354B"
+      },
+      "widgetBorderColor": {
+        "light": "#D6DEE8",
+        "dark": "#2B4660"
+      },
+      "selectionColor": {
+        "light": "#2272B4",
+        "dark": "#15AFDD"
+      },
+      "visualizationColors": [
+        "#2272B4",
+        "#1F354B",
+        "#15AFDD",
+        "#C89930",
+        "#C85070",
+        "#6B8E23",
+        "#8A6FB0",
+        "#A0A0A0"
+      ],
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED",
+      "widgetCornerRadius": 8,
+      "fontSettings": {
+        "base": {
+          "fontFamily": "Inter"
+        },
+        "widgetTitle": {
+          "fontColor": {
+            "light": "#1F354B",
+            "dark": "#FFFFFF"
+          },
+          "fontWeight": 600
+        }
+      },
+      "visualizationColorMappings": [
+        {
+          "value": "Critical",
+          "color": "#C85070"
+        },
+        {
+          "value": "High",
+          "color": "#C89930"
+        },
+        {
+          "value": "Medium",
+          "color": "#15AFDD"
+        },
+        {
+          "value": "Low",
+          "color": "#2375A8"
+        }
+      ]
+    },
+    "applyModeEnabled": false
+  }
+}

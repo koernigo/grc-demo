@@ -1,0 +1,73 @@
+// GRC Security Intelligence - DAX measure library
+// Source: workspace.grc_gold (Databricks SQL warehouse <warehouse-id>)
+// Table names below match the Power BI table names created when importing the gold tables unchanged.
+// Bands: Effective >= 95%, Partially Effective 80-95%, Ineffective < 80% (grc_ref.control_effectiveness_bands).
+// Measures are written to re-aggregate safely (sums of numerators / denominators, never averages of percentages).
+
+// ---------- Control effectiveness (control_test_results) ----------
+Control Population = SUM ( control_test_results[population_count] )
+Control Exceptions = SUM ( control_test_results[exception_count] )
+Control Pass Rate % =
+    DIVIDE ( [Control Population] - [Control Exceptions], [Control Population] ) * 100
+Controls Tested = DISTINCTCOUNT ( control_test_results[control_id] )
+Controls Effective =
+    CALCULATE ( DISTINCTCOUNT ( control_test_results[control_id] ), control_test_results[effectiveness_band] = "Effective" )
+Controls Ineffective =
+    CALCULATE ( DISTINCTCOUNT ( control_test_results[control_id] ), control_test_results[effectiveness_band] = "Ineffective" )
+Control Tests Failing =
+    CALCULATE ( COUNTROWS ( control_test_results ), control_test_results[test_result] = "Fail" )
+Control Effectiveness Band =
+    VAR r = [Control Pass Rate %]
+    RETURN SWITCH ( TRUE (), ISBLANK ( r ), BLANK (), r >= 95, "Effective", r >= 80, "Partially Effective", "Ineffective" )
+
+// ---------- Control trend (control_health_daily) ----------
+Daily Pass Rate % =
+    DIVIDE ( SUM ( control_health_daily[population_count] ) - SUM ( control_health_daily[exception_count] ),
+             SUM ( control_health_daily[population_count] ) ) * 100
+
+// ---------- Framework posture (compliance_posture) ----------
+Requirements In Scope = COUNTROWS ( compliance_posture )
+Requirements Effective =
+    CALCULATE ( COUNTROWS ( compliance_posture ), compliance_posture[requirement_status] = "Effective" )
+Requirements Effective % = DIVIDE ( [Requirements Effective], [Requirements In Scope] ) * 100
+
+// ---------- Vulnerability management (vuln_sla_compliance) ----------
+Vuln Findings = SUM ( vuln_sla_compliance[total_findings] )
+Vuln Open Findings = SUM ( vuln_sla_compliance[open_findings] )
+Vuln Open Past SLA = SUM ( vuln_sla_compliance[open_past_sla] )
+Vuln Within SLA = SUM ( vuln_sla_compliance[findings_within_sla] )
+Vuln SLA Compliance % = DIVIDE ( [Vuln Within SLA], [Vuln Findings] ) * 100
+Vuln Open KEV = SUM ( vuln_sla_compliance[open_kev_findings] )
+Vuln Open KEV > 14d = SUM ( vuln_sla_compliance[open_kev_past_14d] )
+
+// ---------- Identity & access (identity_risk) ----------
+Identities = COUNTROWS ( identity_risk )
+Orphaned Accounts = CALCULATE ( COUNTROWS ( identity_risk ), identity_risk[is_orphan] = TRUE () )
+Post-Termination Sign-in Accounts =
+    CALCULATE ( COUNTROWS ( identity_risk ), identity_risk[is_orphan] = TRUE (), identity_risk[signins_after_termination] > 0 )
+Privileged Accounts = CALCULATE ( COUNTROWS ( identity_risk ), identity_risk[is_privileged] = TRUE () )
+Privileged Without Phishing-Resistant MFA =
+    CALCULATE ( COUNTROWS ( identity_risk ), identity_risk[is_privileged] = TRUE (), identity_risk[is_enabled] = TRUE (),
+                identity_risk[phishing_resistant_mfa] = FALSE () )
+High / Critical Identity Risk =
+    CALCULATE ( COUNTROWS ( identity_risk ), identity_risk[risk_level] IN { "High", "Critical" } )
+
+// ---------- Assets (asset_coverage_gaps) ----------
+Assets With Gaps = DISTINCTCOUNT ( asset_coverage_gaps[asset_id] )
+
+// ---------- Exceptions, policies, risks ----------
+Exceptions Expired Still Active =
+    CALCULATE ( COUNTROWS ( exception_tracker ), exception_tracker[tracker_state] = "Expired - Still Active" )
+Exceptions Expiring 30d =
+    CALCULATE ( COUNTROWS ( exception_tracker ), exception_tracker[tracker_state] = "Expiring Within 30 Days" )
+Policies Overdue = CALCULATE ( COUNTROWS ( policy_lifecycle ), policy_lifecycle[is_review_overdue] = TRUE () )
+Open Risks = CALCULATE ( COUNTROWS ( risk_register_scored ), risk_register_scored[is_open] = TRUE () )
+Residual ALE (USD) = CALCULATE ( SUM ( risk_register_scored[residual_ale_usd] ), risk_register_scored[is_open] = TRUE () )
+
+// ---------- Executive KPI card helper (grc_kpi_summary) ----------
+// Use with a slicer / filter on grc_kpi_summary[kpi_id]
+KPI Value = SELECTEDVALUE ( grc_kpi_summary[kpi_value] )
+KPI Target = SELECTEDVALUE ( grc_kpi_summary[target_value] )
+KPI Status = SELECTEDVALUE ( grc_kpi_summary[kpi_status] )
+KPI Status Color =
+    SWITCH ( [KPI Status], "On Target", "#2E7D32", "Monitor", "#F9A825", "Off Target", "#C62828", "#9E9E9E" )

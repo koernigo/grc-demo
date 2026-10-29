@@ -1,0 +1,22 @@
+{
+  "version": "0.1",
+  "connections": [
+    {
+      "details": {
+        "protocol": "databricks-sql",
+        "address": {
+          "host": "<your-workspace-host>",
+          "path": "/sql/1.0/warehouses/<warehouse-id>"
+        },
+        "authentication": null,
+        "query": null
+      },
+      "options": {
+        "Catalog": "workspace",
+        "Database": "grc_gold",
+        "EnableAutomaticProxyDiscovery": "enabled"
+      },
+      "mode": "DirectQuery"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# SQL alert (v2). Evaluates daily 07:00 America/New_York, after the 06:00 UTC refresh. Paused by default.
+resources:
+  alerts:
+    root_no_mfa:
+      display_name: GRC - AWS root console login without MFA
+      query_text: SELECT coalesce(max(kpi_value), 0) AS root_logins_without_mfa FROM `${var.catalog}`.grc_gold.grc_kpi_summary WHERE kpi_id = 'KPI-CLD-01'
+      warehouse_id: ${var.warehouse_id}
+      evaluation:
+        comparison_operator: GREATER_THAN
+        source:
+          name: root_logins_without_mfa
+          display: root_logins_without_mfa
+        threshold:
+          value:
+            double_value: 0
+        notification:
+          notify_on_ok: false
+          subscriptions:
+            - user_email: ${workspace.current_user.userName}
+      schedule:
+        pause_status: PAUSED
+        quartz_cron_schedule: 0 0 7 * * ?
+        timezone_id: America/New_York

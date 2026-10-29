@@ -1,0 +1,21 @@
+# Lakeflow Spark Declarative Pipeline: bronze (24 streaming tables from 10 simulated sources)
+# -> silver (conformed entities, SCD2, AI enrichment) -> gold (control tests, posture, risk, KPIs).
+# SQL sources reference ${grc_catalog}, ${as_of_date} and ${llm_endpoint} from `configuration`.
+resources:
+  pipelines:
+    grc_medallion:
+      name: GRC Security Intelligence Medallion
+      catalog: ${var.catalog}
+      schema: grc_bronze
+      serverless: true
+      photon: true
+      channel: CURRENT
+      continuous: false
+      root_path: ../src/pipeline
+      libraries:
+        - glob:
+            include: ../src/pipeline/transformations/**
+      configuration:
+        grc_catalog: ${var.catalog}
+        as_of_date: ${var.as_of_date}
+        llm_endpoint: ${var.llm_endpoint}

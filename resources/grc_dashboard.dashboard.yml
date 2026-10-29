@@ -1,0 +1,10 @@
+# 6-page AI/BI dashboard. Dataset queries in the .lvdash.json use unqualified grc_* schema names;
+# dataset_catalog points them at ${var.catalog}.
+resources:
+  dashboards:
+    grc_dashboard:
+      display_name: GRC Security Intelligence
+      file_path: ../src/dashboards/GRC Security Intelligence.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}
+      embed_credentials: true

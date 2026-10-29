@@ -1,0 +1,46 @@
+# grc_setup - run ONCE after the first deploy: reference data -> synthetic sources -> NAS badge/visitor
+#             files -> full pipeline run -> metric views, Genie space and app grants.
+# The daily refresh job lives in grc_refresh.job.yml.
+# All tasks run on serverless compute and sequentially (Free Edition allows 5 concurrent tasks).
+resources:
+  jobs:
+    grc_setup:
+      name: GRC Security Intelligence - One-time Setup
+      description: Builds the full GRC Security Intelligence demo end to end in catalog ${var.catalog}.
+      max_concurrent_runs: 1
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: as_of_date
+          default: ${var.as_of_date}
+        - name: warehouse_id
+          default: ${var.warehouse_id}
+        - name: app_name
+          default: ${resources.apps.grc_app.name}
+        - name: pipeline_id
+          default: ${resources.pipelines.grc_medallion.id}
+      tasks:
+        - task_key: reference_setup
+          notebook_task:
+            notebook_path: ../src/setup/00_reference_setup.ipynb
+        - task_key: generate_synthetic_sources
+          depends_on:
+            - task_key: reference_setup
+          notebook_task:
+            notebook_path: ../src/setup/01_generate_synthetic_data.ipynb
+        - task_key: generate_nas_physical_security
+          depends_on:
+            - task_key: generate_synthetic_sources
+          notebook_task:
+            notebook_path: ../src/setup/02_generate_nas_data.ipynb
+        - task_key: run_medallion_pipeline
+          depends_on:
+            - task_key: generate_nas_physical_security
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.grc_medallion.id}
+            full_refresh: true
+        - task_key: semantic_layer_and_genie
+          depends_on:
+            - task_key: run_medallion_pipeline
+          notebook_task:
+            notebook_path: ../src/setup/03_semantic_layer_and_genie.ipynb

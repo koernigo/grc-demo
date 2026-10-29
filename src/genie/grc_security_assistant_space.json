@@ -1,0 +1,98 @@
+{
+  "version": 2,
+  "config": {
+    "sample_questions": [
+      {"id": "0afff34ffad043f3affcd330f0c4cb12", "question": ["Which controls are ineffective and who owns them?"]},
+      {"id": "19f5753c23e349a69949aa4e071c817b", "question": ["How many critical vulnerabilities on internet-facing assets are past SLA by business unit?"]},
+      {"id": "8eafe5c6f0794ec09e0d5b7703becdde", "question": ["Show privileged accounts without phishing-resistant MFA"]},
+      {"id": "989cc57a695147318b5d4b9a13edbe82", "question": ["Which risk exceptions expire in the next 30 days?"]},
+      {"id": "bcef514db4e341249eb6e013ae0b70d2", "question": ["What evidence supports control GRC-IAM-01?"]},
+      {"id": "c1a0e5d2b3f44c6e9a7d8b9c0d1e2f30", "question": ["Who badged into a building after their termination date?"]}
+    ]
+  },
+  "data_sources": {
+    "tables": [
+      {"identifier": "__CATALOG__.grc_gold.asset_coverage_gaps"},
+      {"identifier": "__CATALOG__.grc_gold.audit_evidence_index"},
+      {"identifier": "__CATALOG__.grc_gold.compliance_posture"},
+      {"identifier": "__CATALOG__.grc_gold.control_failure_narrative"},
+      {"identifier": "__CATALOG__.grc_gold.control_health_daily"},
+      {"identifier": "__CATALOG__.grc_gold.control_test_evidence"},
+      {"identifier": "__CATALOG__.grc_gold.control_test_results"},
+      {"identifier": "__CATALOG__.grc_gold.exception_tracker"},
+      {"identifier": "__CATALOG__.grc_gold.grc_kpi_summary"},
+      {"identifier": "__CATALOG__.grc_gold.identity_risk"},
+      {"identifier": "__CATALOG__.grc_gold.mv_grc_metrics"},
+      {"identifier": "__CATALOG__.grc_gold.mv_vuln_metrics"},
+      {"identifier": "__CATALOG__.grc_gold.physical_post_termination_badge_use"},
+      {"identifier": "__CATALOG__.grc_gold.physical_visitor_findings"},
+      {"identifier": "__CATALOG__.grc_gold.physical_zone_anomalies"},
+      {"identifier": "__CATALOG__.grc_gold.policy_lifecycle"},
+      {"identifier": "__CATALOG__.grc_gold.remediation_backlog"},
+      {"identifier": "__CATALOG__.grc_gold.risk_register_scored"},
+      {"identifier": "__CATALOG__.grc_gold.vuln_sla_compliance"},
+      {"identifier": "__CATALOG__.grc_ref.control_crosswalk"},
+      {"identifier": "__CATALOG__.grc_ref.controls"},
+      {"identifier": "__CATALOG__.grc_ref.framework_requirements"},
+      {"identifier": "__CATALOG__.grc_ref.frameworks"},
+      {"identifier": "__CATALOG__.grc_silver.incident_classification"},
+      {"identifier": "__CATALOG__.grc_silver.policy_document_extract"},
+      {"identifier": "__CATALOG__.grc_silver.security_event"}
+    ]
+  },
+  "instructions": {
+    "text_instructions": [
+      {
+        "id": "2409b45b8152485c972fa1447fe4d4d7",
+        "content": [
+          "GRC Security Assistant for ACME Corp. Data is evaluated as of the pipeline as_of_date (__AS_OF_DATE__); every gold table has an as_of_date or test_run_date column - use the latest unless the user asks for a period.\n",
+          "Definitions:\n",
+          "- Control effectiveness: Effective = pass rate >= 95%, Partially Effective = 80-95%, Ineffective < 80% (grc_ref.control_effectiveness_bands). test_result = Pass/Fail per control test.\n",
+          "- Unified controls are GRC-xxx-nn (grc_ref.controls); tests are T-xxx-nn. Map controls to frameworks via grc_ref.control_crosswalk (control_id -> framework_id, requirement_id) and grc_ref.framework_requirements. Framework ids: NIST_CSF_2, ISO_27001, SOC2, CIS_V8. For framework posture use grc_gold.compliance_posture.\n",
+          "- Vulnerability remediation SLA days: Critical 15, High 30, Medium 90, Low 180; CISA KEV 14 days; multiplied by asset tier multiplier (T0 0.5, T1/T2 1.0, T3 1.5). Crown jewel = asset tier T0.\n",
+          "- Orphaned account = terminated in HR but still ACTIVE in Okta (identity_risk.is_orphan). Dormant = enabled with no sign-in > 90 days. Privileged = holds AWS-Prod-Admin, Okta-SuperAdmin, Prod-DB-Admin, GitHub-Org-Admin or ERP-Admin. Phishing-resistant MFA = fido2 or push_number_match.\n",
+          "- Row-level evidence for any control test is grc_gold.control_test_evidence (filter test_id, is_exception = true for exceptions). Auditor evidence pointers and ready-to-run SQL are in grc_gold.audit_evidence_index.\n",
+          "- Prefer the metric views for aggregated KPIs: grc_gold.mv_grc_metrics (control pass rate, exceptions by control / domain / business unit) and grc_gold.mv_vuln_metrics (open findings, past SLA, KEV, MTTR). Query them with MEASURE(`Measure Name`) and GROUP BY dimensions; SELECT * is not supported.\n",
+          "- Executive KPIs: grc_gold.grc_kpi_summary (one row per KPI with target and status).\n",
+          "- Physical security (badge readers and visitor log from the NAS share): grc_gold.physical_post_termination_badge_use (people badging in after HR termination), grc_gold.physical_zone_anomalies (forced / held-open doors and denied attempts on Critical zones), grc_gold.physical_visitor_findings (unescorted, no NDA, no sign-out). A NULL control_id means no control covers the finding yet (control gap).\n",
+          "- AI-generated content: grc_gold.control_failure_narrative (owner narrative, auditor commentary, actions) and grc_silver.policy_document_extract (fields extracted from policy PDFs; has_register_conflict flags disagreements with the SharePoint register) are AI drafts - say so when quoting them.\n",
+          "- Business units: bu_id values BU-FIN, BU-ENG, BU-OPS, BU-SAL, BU-CORP; most gold tables also carry bu_name.\n"
+        ]
+      }
+    ],
+    "example_question_sqls": [
+      {"id": "037a1f12467a4333b4bd8489445dd243", "question": ["What is our compliance posture by framework?"],
+       "sql": ["SELECT framework_id, framework_name, first(framework_requirements_effective_pct) AS pct_requirements_effective, first(framework_avg_pass_rate_pct) AS avg_pass_rate_pct, count(*) AS requirements, count_if(requirement_status = 'Ineffective') AS ineffective_requirements FROM `__CATALOG__`.grc_gold.compliance_posture GROUP BY ALL ORDER BY pct_requirements_effective"]},
+      {"id": "04a5933214fb4142ac5e331a2ec5c4bd", "question": ["Which controls are ineffective and who owns them?"],
+       "sql": ["SELECT control_id, control_name, control_domain, owner_role, test_id, pass_rate_pct, exception_count, population_count FROM `__CATALOG__`.grc_gold.control_test_results WHERE effectiveness_band = 'Ineffective' ORDER BY pass_rate_pct"]},
+      {"id": "04fa935832c2453ab9ed536706d2d4f7", "question": ["Which SOC 2 CC6 requirements are failing?"],
+       "sql": ["SELECT requirement_id, requirement_title, requirement_status, failing_controls, weighted_pass_rate_pct FROM `__CATALOG__`.grc_gold.compliance_posture WHERE framework_id = 'SOC2' AND requirement_id LIKE 'CC6%' AND requirement_status <> 'Effective' ORDER BY requirement_id"]},
+      {"id": "06dea6fc456c4116b3bc48a808c7cc87", "question": ["How many critical vulnerabilities on internet-facing assets are past SLA by business unit?"],
+       "sql": ["SELECT `Business Unit`, MEASURE(`Open Past SLA`) AS open_past_sla, MEASURE(`Open Findings`) AS open_findings FROM `__CATALOG__`.grc_gold.mv_vuln_metrics WHERE `Severity` = 'Critical' AND `Internet Facing` = true GROUP BY ALL ORDER BY open_past_sla DESC"]},
+      {"id": "13883b79871a4341b3769f330c73bea4", "question": ["Show orphaned accounts that signed in after termination"],
+       "sql": ["SELECT login, bu_name, job_title, hr_termination_date, signins_after_termination, last_signin_after_termination_ts, is_privileged, risk_score FROM `__CATALOG__`.grc_gold.identity_risk WHERE is_orphan AND signins_after_termination > 0 ORDER BY signins_after_termination DESC"]},
+      {"id": "142cf5b4bab64e9b8ed6e3b6650a1251", "question": ["Show privileged accounts without phishing-resistant MFA"],
+       "sql": ["SELECT login, bu_name, privileged_groups, mfa_enrolled, mfa_type, risk_level FROM `__CATALOG__`.grc_gold.identity_risk WHERE is_privileged AND is_enabled AND NOT phishing_resistant_mfa ORDER BY risk_score DESC"]},
+      {"id": "1cea31be848f4ab5845e0975e4e541fd", "question": ["Which risk exceptions expire in the next 30 days or are already expired but active?"],
+       "sql": ["SELECT exception_id, exception_title, tracker_state, bu_name, expiry_date, days_to_expiry, policy_title, control_id, linked_risk_title FROM `__CATALOG__`.grc_gold.exception_tracker WHERE tracker_state IN ('Expiring Within 30 Days', 'Expired - Still Active') ORDER BY days_to_expiry"]},
+      {"id": "30e99a7f98a542b2bc3bf44194de859b", "question": ["Which policies are overdue for review?"],
+       "sql": ["SELECT policy_id, policy_title, owner_email, last_review_date, next_review_date, days_overdue, failing_controls FROM `__CATALOG__`.grc_gold.policy_lifecycle WHERE is_review_overdue ORDER BY days_overdue DESC"]},
+      {"id": "3428e1205cc444aa82da5842a618c01e", "question": ["Where does the policy document disagree with the SharePoint register?"],
+       "sql": ["SELECT policy_id, doc_policy_title, owner_mismatch, review_date_mismatch, doc_approval_date, register_last_review_date, sla_conflict, doc_critical_remediation_days, enforced_critical_sla_days FROM `__CATALOG__`.grc_silver.policy_document_extract WHERE has_register_conflict ORDER BY policy_id"]},
+      {"id": "822387ccd41548f39d3853d9afee6003", "question": ["What evidence supports control GRC-IAM-01?"],
+       "sql": ["SELECT control_id, test_id, test_name, evidence_source_table, population_rows, exception_rows, pass_rate_pct, test_result, framework_requirements, exceptions_query FROM `__CATALOG__`.grc_gold.audit_evidence_index WHERE control_id = 'GRC-IAM-01'"]},
+      {"id": "8e91c00271434b82bfb5854b158eb16f", "question": ["Show control pass rate by business unit for identity and access controls"],
+       "sql": ["SELECT `Business Unit`, `Control ID`, MEASURE(`Pass Rate Pct`) AS pass_rate_pct, MEASURE(`Exceptions`) AS exceptions FROM `__CATALOG__`.grc_gold.mv_grc_metrics WHERE `Control Domain` = 'Identity & Access' GROUP BY ALL ORDER BY pass_rate_pct"]},
+      {"id": "91efa7a3c585404c84e30695d81e9cd7", "question": ["Which assets are missing EDR?"],
+       "sql": ["SELECT asset_name, asset_category, bu_name, tier, environment, internet_facing, gap_priority FROM `__CATALOG__`.grc_gold.asset_coverage_gaps WHERE array_contains(gap_types, 'NO_EDR') ORDER BY gap_priority, tier"]},
+      {"id": "97119eda532a4e9aabc6efc715ce916d", "question": ["Which orphaned or privileged identities made AWS API calls in the last 7 days?"],
+       "sql": ["SELECT i.login, i.is_orphan, i.is_privileged, count(*) AS aws_events, max(e.event_time) AS last_event FROM `__CATALOG__`.grc_gold.identity_risk i JOIN `__CATALOG__`.grc_silver.security_event e ON e.event_source_system = 'aws_cloudtrail' AND lower(e.actor) = lower(i.login) WHERE (i.is_orphan OR i.is_privileged) AND e.event_date >= date_sub(i.as_of_date, 7) GROUP BY ALL ORDER BY aws_events DESC"]},
+      {"id": "ca80922db15843bcaaf2ba9b3e3df962", "question": ["Show the executive KPI summary"],
+       "sql": ["SELECT kpi_domain, kpi_name, kpi_value, unit, target_value, kpi_status FROM `__CATALOG__`.grc_gold.grc_kpi_summary ORDER BY kpi_domain, kpi_id"]},
+      {"id": "fbf1f4f95a324034bbfa6161c47fa2ec", "question": ["What is the residual risk heatmap?"],
+       "sql": ["SELECT residual_rating, likelihood, impact, count(*) AS risks, sum(residual_ale_usd) AS residual_ale_usd FROM `__CATALOG__`.grc_gold.risk_register_scored WHERE is_open GROUP BY ALL ORDER BY likelihood DESC, impact DESC"]},
+      {"id": "fd2c6a1e8b7f4d3a9c5e0b1a2d3c4e5f", "question": ["Who badged into a building after their termination date?"],
+       "sql": ["SELECT * FROM `__CATALOG__`.grc_gold.physical_post_termination_badge_use ORDER BY CASE severity WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 ELSE 3 END"]}
+    ]
+  }
+}

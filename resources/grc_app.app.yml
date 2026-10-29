@@ -1,0 +1,43 @@
+# GRC Control Center (Streamlit). IDs are injected from the other bundle resources at deploy time;
+# the Genie space is created by the setup job, so the app looks it up by title at runtime.
+resources:
+  apps:
+    grc_app:
+      name: grc-control-center-${workspace.current_user.domain_friendly_name}
+      description: GRC Control Center - posture overview, dashboard, pipeline health, Genie and build guide
+      source_code_path: ../src/app
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: job
+          job:
+            id: ${resources.jobs.grc_refresh.id}
+            permission: CAN_MANAGE_RUN
+      config:
+        command:
+          - streamlit
+          - run
+          - app.py
+        env:
+          - name: DATABRICKS_WAREHOUSE_ID
+            value: ${var.warehouse_id}
+          - name: GRC_CATALOG
+            value: ${var.catalog}
+          - name: GRC_PIPELINE_ID
+            value: ${resources.pipelines.grc_medallion.id}
+          - name: GRC_JOB_ID
+            value: ${resources.jobs.grc_refresh.id}
+          - name: GRC_DASHBOARD_ID
+            value: ${resources.dashboards.grc_dashboard.id}
+          - name: GRC_ALERT_IDS
+            value: ${resources.alerts.kev_t0.id},${resources.alerts.root_no_mfa.id},${resources.alerts.expired_exceptions.id},${resources.alerts.ineffective_key_controls.id}
+          - name: GENIE_SPACE_ID
+            value: ""
+          - name: GENIE_SPACE_TITLE
+            value: GRC Security Assistant
+          - name: WORKSPACE_URL
+            value: ${workspace.host}
+          - name: GRC_LLM_ENDPOINT
+            value: ${var.llm_endpoint}

@@ -1,0 +1,17 @@
+# Daily pipeline refresh (paused by default on Free Edition to save quota).
+resources:
+  jobs:
+    grc_refresh:
+      name: GRC Security Intelligence - Daily Refresh
+      description: Daily refresh of the GRC Security Intelligence Medallion pipeline (bronze -> silver -> gold, AI enrichment). Downstream - AI/BI dashboard, Genie, alerts, app.
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      schedule:
+        quartz_cron_expression: 0 0 6 * * ?
+        timezone_id: UTC
+        pause_status: PAUSED
+      tasks:
+        - task_key: grc_pipeline_refresh
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.grc_medallion.id}

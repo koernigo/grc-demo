@@ -1,0 +1,7 @@
+command:
+  - streamlit
+  - run
+  - app.py
+
+# Environment variables (warehouse, catalog, pipeline/job/dashboard/alert IDs, Genie title, LLM endpoint)
+# are injected by the bundle from resources/grc_app.app.yml -> config.env. Do not hardcode IDs here.

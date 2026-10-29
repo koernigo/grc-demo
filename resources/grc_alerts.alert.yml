@@ -1,0 +1,25 @@
+# SQL alert (v2). Evaluates daily 07:00 America/New_York, after the 06:00 UTC refresh.
+# Paused by default; unpause once the setup job has built the gold tables.
+# The other 3 alerts live in grc_alert_*.alert.yml.
+resources:
+  alerts:
+    kev_t0:
+      display_name: GRC - Open KEV vulnerabilities on crown-jewel (T0) assets
+      query_text: SELECT count(*) AS open_kev_t0_findings FROM `${var.catalog}`.grc_silver.vulnerability_finding WHERE is_open AND is_kev AND tier = 'T0'
+      warehouse_id: ${var.warehouse_id}
+      evaluation:
+        comparison_operator: GREATER_THAN
+        source:
+          name: open_kev_t0_findings
+          display: open_kev_t0_findings
+        threshold:
+          value:
+            double_value: 0
+        notification:
+          notify_on_ok: false
+          subscriptions:
+            - user_email: ${workspace.current_user.userName}
+      schedule:
+        pause_status: PAUSED
+        quartz_cron_schedule: 0 0 7 * * ?
+        timezone_id: America/New_York
