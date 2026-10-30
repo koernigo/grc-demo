@@ -8,3 +8,9 @@ resources:
       warehouse_id: ${var.warehouse_id}
       dataset_catalog: ${var.catalog}
       embed_credentials: true
+      # Portability: let the GRC app's service principal see the dashboard so its
+      # runtime name-based ID fallback works even when deployed without env vars.
+      # (Dashboards use CAN_READ - the API name for the UI's "Can view".)
+      permissions:
+        - service_principal_name: ${resources.apps.grc_app.service_principal_client_id}
+          level: CAN_READ

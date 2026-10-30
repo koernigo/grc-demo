@@ -32,7 +32,7 @@ GENIE_SPACE_ID = os.getenv("GENIE_SPACE_ID", "")
 GENIE_SPACE_TITLE = os.getenv("GENIE_SPACE_TITLE", "GRC Security Assistant")
 LLM_ENDPOINT = os.getenv("GRC_LLM_ENDPOINT", "databricks-gpt-oss-120b")
 ALERT_IDS = [a for a in os.getenv("GRC_ALERT_IDS", "").split(",") if a]
-WS_URL = os.getenv("WORKSPACE_URL", "").rstrip("/")
+WS_URL = os.getenv("WORKSPACE_URL", "").rstrip("/")  # falls back to the SDK host below if unset
 WS_ID = os.getenv("WORKSPACE_ID", "")
 C = f"`{CATALOG}`"  # always backtick-quote (catalog names may contain hyphens)
 
@@ -104,11 +104,68 @@ def find_genie_space(title: str) -> str:
 
 if not GENIE_SPACE_ID:
     GENIE_SPACE_ID = find_genie_space(GENIE_SPACE_TITLE)
+if not WS_URL:
+    try:
+        WS_URL = (ws().config.host or "").rstrip("/")
+    except Exception:
+        WS_URL = ""
 if not WS_ID:
     try:
         WS_ID = str(ws().get_workspace_id())
     except Exception:
         WS_ID = ""
+
+
+def resolve_missing_ids():
+    """Fallback lookups for when the app was deployed WITHOUT the bundle-injected env vars
+    (a manual/UI deploy only reads app.yaml, which carries no IDs). Matches on the stable
+    part of each resource name - bundle dev-mode adds a user prefix. Fails silently so the
+    app degrades gracefully instead of erroring (only warehouse lookup is load-bearing)."""
+    global WAREHOUSE_ID, PIPELINE_ID, JOB_ID, DASHBOARD_ID
+    try:
+        if not WAREHOUSE_ID:
+            whs = list(ws().warehouses.list())
+            if whs:
+                WAREHOUSE_ID = whs[0].id
+    except Exception:
+        pass
+    try:
+        if not PIPELINE_ID:
+            for p in ws().pipelines.list_pipelines():
+                if "GRC Security Intelligence Medallion" in (p.name or ""):
+                    PIPELINE_ID = p.pipeline_id
+                    break
+    except Exception:
+        pass
+    try:
+        if not JOB_ID:
+            for j in ws().jobs.list():
+                nm = (j.settings.name if j.settings else "") or ""
+                if "GRC Security Intelligence - Daily Refresh" in nm:
+                    JOB_ID = str(j.job_id)
+                    break
+    except Exception:
+        pass
+    try:
+        if not DASHBOARD_ID:
+            token = None
+            while True:
+                q = {"page_size": 100}
+                if token:
+                    q["page_token"] = token
+                r = ws().api_client.do("GET", "/api/2.0/lakeview/dashboards", query=q)
+                for d in r.get("dashboards", []):
+                    if "GRC Security Intelligence" in (d.get("display_name") or ""):
+                        DASHBOARD_ID = d.get("dashboard_id")
+                        break
+                token = r.get("next_page_token")
+                if not token or DASHBOARD_ID:
+                    break
+    except Exception:
+        pass
+
+
+resolve_missing_ids()
 
 
 _NUMERIC = {"INT", "LONG", "SHORT", "BYTE", "DOUBLE", "FLOAT", "DECIMAL"}

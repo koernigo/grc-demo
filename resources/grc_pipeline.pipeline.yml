@@ -19,3 +19,8 @@ resources:
         grc_catalog: ${var.catalog}
         as_of_date: ${var.as_of_date}
         llm_endpoint: ${var.llm_endpoint}
+      # Portability: grant the GRC app's service principal read access so the
+      # Pipeline & Data Health tab works without manual grants in each workspace.
+      permissions:
+        - service_principal_name: ${resources.apps.grc_app.service_principal_client_id}
+          level: CAN_VIEW

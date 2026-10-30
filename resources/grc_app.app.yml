@@ -14,7 +14,9 @@ resources:
         - name: job
           job:
             id: ${resources.jobs.grc_refresh.id}
-            permission: CAN_MANAGE_RUN
+            # CAN_MANAGE (not just CAN_MANAGE_RUN) so the app can also read job settings
+            # and run history for the Pipeline & Data Health tab.
+            permission: CAN_MANAGE
       config:
         command:
           - streamlit
@@ -33,11 +35,11 @@ resources:
             value: ${resources.dashboards.grc_dashboard.id}
           - name: GRC_ALERT_IDS
             value: ${resources.alerts.kev_t0.id},${resources.alerts.root_no_mfa.id},${resources.alerts.expired_exceptions.id},${resources.alerts.ineffective_key_controls.id}
-          - name: GENIE_SPACE_ID
-            value: ""
+          # GENIE_SPACE_ID is intentionally omitted (empty values are rejected by the Apps API):
+          # the app looks the space up by GENIE_SPACE_TITLE at runtime.
+          # WORKSPACE_URL is also omitted - ${workspace.host} resolves empty here; the app derives
+          # the host itself from the WorkspaceClient config.
           - name: GENIE_SPACE_TITLE
             value: GRC Security Assistant
-          - name: WORKSPACE_URL
-            value: ${workspace.host}
           - name: GRC_LLM_ENDPOINT
             value: ${var.llm_endpoint}
