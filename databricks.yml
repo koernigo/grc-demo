@@ -10,7 +10,9 @@ include:
 
 variables:
   catalog:
-    description: Unity Catalog catalog that will hold grc_bronze/grc_silver/grc_gold/grc_ref/grc_synth. Free Edition default is `workspace`.
+    description: >-
+      Unity Catalog catalog that will hold grc_bronze/grc_silver/grc_gold/grc_ref/grc_synth.
+      Free Edition default is `workspace`; on other workspaces pass --var catalog=<catalog> (e.g. main).
     default: workspace
   warehouse_name:
     description: Name of the SQL warehouse used by the dashboard, alerts, Genie and the app.
